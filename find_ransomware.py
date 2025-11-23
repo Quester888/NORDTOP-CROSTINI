@@ -9,6 +9,7 @@ KEY_PROMPTS = ["unlock", "decrypt", "password", "key"]
 root_path = "/home"  # Adjust this if needed
 
 high_risk = []
+ultra_high_risk = []  # New category
 
 for root, dirs, files in os.walk(root_path):
     for filename in files:
@@ -30,19 +31,41 @@ for root, dirs, files in os.walk(root_path):
                 if any(p.lower() in content.lower() for p in KEY_PROMPTS):
                     flags.append("Key Prompt")
 
-                # Only flag files with 3 or more suspicious behaviors
-                if len(flags) >= 3:
+                score = len(flags)
+
+                # High risk = 3 suspicious behaviors
+                if score == 3:
                     high_risk.append((filepath, flags))
+
+                # ULTRA high risk = all 4 behaviors
+                elif score == 4:
+                    ultra_high_risk.append((filepath, flags))
 
             except (PermissionError, FileNotFoundError):
                 continue
 
+# ----- Print BIG warnings to console -----
+if ultra_high_risk:
+    print("\n" + "="*60)
+    print("⚠️  WARNING: ULTRA HIGH RISK PYTHON FILES DETECTED  ⚠️")
+    print("These files match *all* ransomware-like behaviors!")
+    print("="*60 + "\n")
+
+    for file, flags in ultra_high_risk:
+        print(f"!!! ULTRA HIGH RISK: {file}")
+        print(f"Flags: {', '.join(flags)}\n")
+
 # ----- Save Report -----
 report_path = "scan_report.txt"
-with open(report_path, "w", encoding="utf-8") as report:
-    report.write("=== HIGH RISK FILES ===\n\n")
-    for file, flags in high_risk:
-        report.write(f"{file} -> {', '.join(flags)}\n\n")  # Blank line between entries
 
-print(f"Scan complete. Report saved to: {report_path}")
+with open(report_path, "w", encoding="utf-8") as report:
+    report.write("=== ULTRA HIGH RISK FILES (4 behaviors) ===\n\n")
+    for file, flags in ultra_high_risk:
+        report.write(f"{file} -> {', '.join(flags)}\n\n")
+
+    report.write("=== HIGH RISK FILES (3 behaviors) ===\n\n")
+    for file, flags in high_risk:
+        report.write(f"{file} -> {', '.join(flags)}\n\n")
+
+print(f"\nScan complete. Report saved to: {report_path}")
 
