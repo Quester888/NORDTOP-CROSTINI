@@ -8,9 +8,6 @@ KEY_PROMPTS = ["unlock", "decrypt", "password", "key"]
 
 root_path = "/home"  # Adjust this if needed
 
-# Risk buckets
-low_risk = []
-medium_risk = []
 high_risk = []
 
 for root, dirs, files in os.walk(root_path):
@@ -33,18 +30,8 @@ for root, dirs, files in os.walk(root_path):
                 if any(p.lower() in content.lower() for p in KEY_PROMPTS):
                     flags.append("Key Prompt")
 
-                # Skip clean files
-                if not flags:
-                    continue
-
-                # Risk scoring logic
-                score = len(flags)
-
-                if score == 1:
-                    low_risk.append((filepath, flags))
-                elif score == 2:
-                    medium_risk.append((filepath, flags))
-                else:  # 3 or 4 flags
+                # Only flag files with 3 or more suspicious behaviors
+                if len(flags) >= 3:
                     high_risk.append((filepath, flags))
 
             except (PermissionError, FileNotFoundError):
@@ -53,23 +40,9 @@ for root, dirs, files in os.walk(root_path):
 # ----- Save Report -----
 report_path = "scan_report.txt"
 with open(report_path, "w", encoding="utf-8") as report:
-
-    report.write("=== HIGH RISK FILES ===\n")
+    report.write("=== HIGH RISK FILES ===\n\n")
     for file, flags in high_risk:
-        report.write(f"{file} -> {', '.join(flags)}\n")
-    report.write("\n")
-
-    report.write("=== MEDIUM RISK FILES ===\n")
-    for file, flags in medium_risk:
-        report.write(f"{file} -> {', '.join(flags)}\n")
-    report.write("\n")
-
-    report.write("=== LOW RISK FILES ===\n")
-    for file, flags in low_risk:
-        report.write(f"{file} -> {', '.join(flags)}\n")
-    report.write("\n")
+        report.write(f"{file} -> {', '.join(flags)}\n\n")  # Blank line between entries
 
 print(f"Scan complete. Report saved to: {report_path}")
-
-
 
