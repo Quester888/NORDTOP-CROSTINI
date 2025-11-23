@@ -3,6 +3,8 @@ import shutil
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
+import requests
+from urllib.parse import urlparse
 
 # ------------------------- Configuration ------------------------- #
 TARGET_EXTENSIONS = [".py", ".sh", ".js", ".php", ".rb", ".pl"]
@@ -36,7 +38,7 @@ def scan_system():
     status_area.delete(1.0, tk.END)
     report_lines = []
 
-    status_area.insert(tk.END, "🔍 Starting scan...\n")
+    status_area.insert(tk.END, "🔍 Starting system scan...\n")
     root.update()
 
     for root_dir, dirs, files in os.walk(root_path):
@@ -94,22 +96,77 @@ def scan_system():
     with open(report_path, "w", encoding="utf-8") as report_file:
         report_file.writelines(line + "\n" for line in report_lines)
 
-    status_area.insert(tk.END, f"\n✅ Scan complete.\nReport saved to: {report_path}\n")
+    status_area.insert(tk.END, f"\n✅ System scan complete.\nReport saved to: {report_path}\n")
     status_area.insert(tk.END, f"Quarantine folder: {quarantine_path}\n")
+
+# ------------------ GitHub Safety Checker ------------------ #
+def check_github_url():
+    url = github_url_entry.get().strip()
+    if not url:
+        messagebox.showwarning("Input Error", "Please enter a GitHub URL.")
+        return
+
+    try:
+        path_parts = urlparse(url).path.strip("/").split("/")
+        user, repo = path_parts[0], path_parts[1]
+    except:
+        messagebox.showerror("URL Error", "Invalid GitHub repository URL.")
+        return
+
+    status_area.insert(tk.END, f"\n🔍 Checking GitHub repo: {user}/{repo}\n")
+    root.update()
+
+    api_url = f"https://api.github.com/repos/{user}/{repo}/contents"
+    try:
+        response = requests.get(api_url)
+        if response.status_code != 200:
+            status_area.insert(tk.END, "❌ Could not access repository.\n")
+            return
+
+        files = response.json()
+        suspicious_files = []
+
+        for f in files:
+            name = f.get("name", "")
+            if any(name.endswith(ext) for ext in TARGET_EXTENSIONS):
+                for keyword in ["encrypt", "decrypt", "key", "ransom"]:
+                    if keyword in name.lower():
+                        suspicious_files.append(name)
+
+        if suspicious_files:
+            status_area.insert(tk.END, f"⚠️ Suspicious files detected: {', '.join(suspicious_files)}\n")
+            status_area.insert(tk.END, "Recommendation: Use caution before cloning.\n")
+        else:
+            status_area.insert(tk.END, "✅ No obvious suspicious files found. Likely safe.\n")
+
+    except Exception as e:
+        status_area.insert(tk.END, f"❌ Error checking repo: {str(e)}\n")
 
 # ------------------------- GUI Setup ------------------------- #
 root = tk.Tk()
-root.title("Crostini Malware Scanner")
-
-root.geometry("800x600")
+root.title("Crostini Malware + GitHub Safety Tool")
+root.geometry("900x650")
 
 frame = ttk.Frame(root, padding=10)
 frame.pack(fill=tk.BOTH, expand=True)
 
-scan_button = ttk.Button(frame, text="Start Scan", command=scan_system)
+# --- System Scan Section ---
+scan_button = ttk.Button(frame, text="Start System Scan", command=scan_system)
 scan_button.pack(pady=5)
 
+# --- GitHub URL Checker Section ---
+github_frame = ttk.LabelFrame(frame, text="GitHub Safety Checker", padding=10)
+github_frame.pack(fill=tk.X, pady=10)
+
+github_url_entry = ttk.Entry(github_frame, width=60)
+github_url_entry.pack(side=tk.LEFT, padx=5)
+
+check_button = ttk.Button(github_frame, text="Check URL", command=check_github_url)
+check_button.pack(side=tk.LEFT, padx=5)
+
+# --- Status Area ---
 status_area = scrolledtext.ScrolledText(frame, wrap=tk.WORD)
 status_area.pack(fill=tk.BOTH, expand=True, pady=10)
 
 root.mainloop()
+
